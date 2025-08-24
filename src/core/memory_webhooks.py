@@ -32,6 +32,10 @@ class MemoryWebhookEvent(Enum):
     GRAPH_RELATIONSHIP_ADDED = "graph_relationship_added"
     GRAPH_RELATIONSHIP_UPDATED = "graph_relationship_updated"
     GRAPH_RELATIONSHIP_DELETED = "graph_relationship_deleted"
+    PREFERENCE_STORED = "preference_stored"
+    CORRECTION_STORED = "correction_stored"
+    RELATIONSHIP_ADDED = "relationship_added"
+    GRAPH_BUILT = "graph_built"
 
 
 @dataclass

@@ -150,7 +150,7 @@ class BotMemory:
 
             # Configure webhook if provided
             self.webhook_url = os.getenv("MEM0_WEBHOOK_URL")
-            self.webhook_headers = {}
+            self.webhook_headers: Dict[str, str] = {}
             if self.webhook_url:
                 webhook_token = os.getenv("MEM0_WEBHOOK_TOKEN")
                 if webhook_token:
@@ -623,7 +623,7 @@ class BotMemory:
             )
 
             # Organize results by relationship type
-            relationships = {}
+            relationships: Dict[str, Any] = {}
 
             for memory in related_memories:
                 if memory.get("metadata", {}).get("type") == "relationship":
@@ -743,7 +743,7 @@ class BotMemory:
             context = await self.get_entity_context(user_id, entity)
 
             # Find entities that appear in similar contexts
-            similar_entities = {}
+            similar_entities: Dict[str, Any] = {}
 
             for mention in context["direct_mentions"]:
                 # Extract other entities from the same memory
@@ -810,7 +810,7 @@ class BotMemory:
             # Get all memories for the user
             all_memories = await self.get_all_memories(user_id)
 
-            nodes = {}  # entity -> node data
+            nodes: Dict[str, Any] = {}  # entity -> node data
             edges = []  # list of edge data
 
             # Process relationship memories
@@ -1133,7 +1133,7 @@ class BotMemory:
                     )
 
                 # Top entities by connection count
-                entity_connections = {}
+                entity_connections: Dict[str, Any] = {}
                 for edge in knowledge_graph["edges"]:
                     source = edge.get("source")
                     target = edge.get("target")
@@ -1292,7 +1292,7 @@ class BotMemory:
 
             if self.deduplicate_memories:
                 # Find and merge duplicate memories
-                seen_content = {}
+                seen_content: Dict[str, Any] = {}
                 duplicates = []
 
                 for mem in memories:
@@ -1356,7 +1356,7 @@ class BotMemory:
             memories = await self.get_all_memories(user_id)
 
             # Analyze memory categories
-            category_counts = {}
+            category_counts: Dict[str, Any] = {}
             for mem in memories:
                 category = mem.get("metadata", {}).get("category", "general")
                 category_counts[category] = category_counts.get(category, 0) + 1
@@ -1370,7 +1370,7 @@ class BotMemory:
             if self.has_graph:
                 relationships = await self.get_graph_relationships(user_id)
                 # Extract key relationships
-                relationship_counts = {}
+                relationship_counts: Dict[str, Any] = {}
                 for rel in relationships[:20]:  # Top 20 relationships
                     if isinstance(rel, dict):
                         rel_type = rel.get("type", "unknown")
@@ -1402,7 +1402,7 @@ class BotMemory:
 
     def get_user_config(self, user_id: str) -> Dict[str, Any]:
         """Get user-specific memory configuration from environment."""
-        user_config = {}
+        user_config: Dict[str, Any] = {}
 
         # Check for user-specific settings
         user_prefix = f"MEM0_USER_{user_id.upper()}_"

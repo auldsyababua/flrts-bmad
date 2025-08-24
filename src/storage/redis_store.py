@@ -1,24 +1,25 @@
 """
-Redis store for persistent conversation memory using Upstash Redis.
-Replaces in-memory conversation storage with Redis-backed persistence.
+Redis store for persistent conversation memory using Cloudflare KV.
+Provides compatibility layer for existing code that uses RedisStore.
 """
 
 import json
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
-from upstash_redis import Redis
+
+from .cloudflare_cache import CloudflareRedis
 
 # Load environment variables
 load_dotenv()
 
 
 class RedisStore:
-    """Handles persistent conversation storage using Upstash Redis."""
+    """Handles persistent conversation storage using Cloudflare KV."""
 
     def __init__(self):
-        """Initialize Redis client from environment variables."""
-        self.redis = Redis.from_env()
+        """Initialize Redis-compatible client."""
+        self.redis = CloudflareRedis()
         self.ttl_seconds = (
             86400  # 24 hours default TTL - matches ConversationManager default
         )

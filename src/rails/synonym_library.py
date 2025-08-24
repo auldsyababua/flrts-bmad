@@ -15,7 +15,8 @@ class SynonymLibrary:
         # Memory optimization: Add cache size limits
         self._max_cache_size = 1000
         self._cache_ttl_seconds = 3600  # 1 hour
-        self._cache_timestamps = {}
+        self._cache_timestamps: Dict[str, float] = {}
+        self._indicator_cache: Dict[str, Dict[str, float]] = {}
 
         # Based on natural_language_operations_comprehensive.yaml analysis
         self.operation_synonyms = {
@@ -193,7 +194,7 @@ class SynonymLibrary:
         cache_key = f"indicators:{hash(message)}"
         current_time = time.time()
 
-        if hasattr(self, "_indicator_cache") and cache_key in self._indicator_cache:
+        if cache_key in self._indicator_cache:
             # Check if cache is still valid
             if (
                 current_time - self._cache_timestamps.get(cache_key, 0)

@@ -10,28 +10,28 @@ This test suite implements comprehensive anti-mesa patterns including:
 - Authorization bypass attempts
 """
 
-import pytest
 import asyncio
 import json
+import os
 import string
+import sys
 from typing import Dict, Set
 from unittest.mock import AsyncMock, MagicMock
-from hypothesis import given, strategies as st, settings
-from hypothesis.stateful import (
-    RuleBasedStateMachine,
-    rule,
-    invariant,
-    initialize,
-    Bundle,
-)
 
-import sys
-import os
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.stateful import (
+    Bundle,
+    RuleBasedStateMachine,
+    initialize,
+    invariant,
+    rule,
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from src.rails.processors.list_processor import ListProcessor
-
 
 # ============= Test Fixtures =============
 

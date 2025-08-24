@@ -1,0 +1,135 @@
+# 🏭 PRODUCTION CONFIGURATION FOR RENDER
+# This bot uses WEBHOOKS (not polling) in production!
+# The webhook server (FastAPI) receives updates from Telegram
+
+services:
+  - type: web  # Changed from 'background' to 'web' for webhooks
+    name: markdown-brain-bot
+    runtime: python
+    region: oregon
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"  # Runs FastAPI webhook server
+    healthCheckPath: /  # Health check endpoint for web service
+    envVars:
+      # Required: Bot Authentication
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: CF_PROXY_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Metrics protection (optional)
+      - key: METRICS_AUTH_TOKEN
+        sync: false
+      - key: METRICS_IP_ALLOWLIST
+        sync: false
+      
+      # Required: Database Services
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      
+      # Required: Cloudflare Services
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_VECTORIZE_INDEX
+        value: "flrts-vectors"
+      - key: CLOUDFLARE_KV_NAMESPACE_ID
+        sync: false
+      - key: USE_CLOUDFLARE_VECTORIZE
+        value: "true"
+      - key: USE_CLOUDFLARE_CACHE
+        value: "true"
+      
+      # Optional: Graph Memory (Neo4j)
+      - key: NEO4J_URL
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      
+      # Optional: Memory Webhooks
+      - key: MEM0_WEBHOOK_URL
+        sync: false
+      - key: MEM0_WEBHOOK_TOKEN
+        sync: false
+      
+      # Configuration
+      - key: VECTOR_NAMESPACE
+        value: "10netzero"
+      - key: VECTOR_TOP_K
+        value: "5"
+      - key: VECTOR_CACHE_ENABLED
+        value: "true"
+      - key: VECTOR_CACHE_TTL
+        value: "300"
+      
+      # Authorization
+      - key: AUTHORIZED_USERNAMES
+        sync: false
+      - key: AUTHORIZED_USER_IDS
+        sync: false
+      
+      # Legacy S3 Support (if needed)
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET_NAME
+        value: "markdown-brain-bot"
+      - key: S3_REGION
+        value: "us-east-1"
+      - key: S3_ENDPOINT_URL
+        sync: false
+    autoDeploy: true
+  
+  # Telegram Mini App - Static Site
+  - type: static
+    name: telegram-mini-app
+    runtime: static
+    buildCommand: "cd telegram-mini-app && npm install && npm run build"
+    staticPublishPath: telegram-mini-app/dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-XSS-Protection
+        value: 1; mode=block
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*.js
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*.css
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: VITE_TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: VITE_TELEGRAM_WEB_APP_URL
+        sync: false
+      - key: VITE_API_URL
+        sync: false
+    autoDeploy: true

@@ -11,21 +11,21 @@ This test suite implements comprehensive anti-mesa patterns including:
 - Retry and backoff behavior validation
 """
 
-import pytest
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock
-from hypothesis import given, strategies as st, settings
-from hypothesis.stateful import RuleBasedStateMachine, rule, invariant, initialize
-
-import sys
 import os
+import sys
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from hypothesis.stateful import RuleBasedStateMachine, initialize, invariant, rule
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from src.rails.processors.task_processor import TaskProcessor
 from src.rails.processors.base_processor import BaseProcessor
-
+from src.rails.processors.task_processor import TaskProcessor
 
 # ============= Test Fixtures =============
 

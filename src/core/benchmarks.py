@@ -13,7 +13,6 @@ from functools import wraps
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from upstash_redis import Redis
 
 # Load environment variables
 load_dotenv()
@@ -25,8 +24,11 @@ class PerformanceMonitor:
     """Central performance monitoring and metrics collection."""
 
     def __init__(self):
-        """Initialize the performance monitor with Upstash Redis."""
-        self.redis = Redis.from_env()
+        """Initialize the performance monitor with Cloudflare KV cache."""
+        # Lazy import to avoid circular dependency
+        from storage.cloudflare_cache import CloudflareRedis
+
+        self.redis = CloudflareRedis()
         self.ttl_seconds = 604800  # 7 days
 
     def track_metric(
@@ -147,7 +149,7 @@ class PerformanceMonitor:
                 "conversation_size",
             ]
 
-        summary = {}
+        summary: Dict[str, Any] = {}
         cutoff_time = time.time() - (time_range_minutes * 60)
 
         for metric_name in metric_names:

@@ -3,9 +3,9 @@
 Execute anti-mesa tests without pytest dependency
 """
 
-import sys
-import os
 import json
+import os
+import sys
 from datetime import datetime
 
 # Add parent directory to path
@@ -50,8 +50,9 @@ def run_basic_processor_tests():
         "\n[TEST 2] Checking TaskProcessor constructor for supabase_client parameter..."
     )
     try:
-        from src.rails.processors.task_processor import TaskProcessor
         import inspect
+
+        from src.rails.processors.task_processor import TaskProcessor
 
         # Get constructor signature
         sig = inspect.signature(TaskProcessor.__init__)
@@ -81,8 +82,9 @@ def run_basic_processor_tests():
     # Test 3: Test processor instantiation with mock objects
     print("\n[TEST 3] Testing processor instantiation with mock objects...")
     try:
-        from src.rails.processors.task_processor import TaskProcessor
         from unittest.mock import MagicMock
+
+        from src.rails.processors.task_processor import TaskProcessor
 
         # Create mock objects
         mock_supabase = MagicMock()

@@ -8,8 +8,8 @@ Designed for non-coders to understand their bot's performance.
 
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 def analyze_stats(stats_file):

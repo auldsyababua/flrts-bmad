@@ -13,7 +13,6 @@ Critical: This test MUST pass for the system to work correctly
 import inspect
 import unittest
 
-from src.rails.processors.field_report_processor import FieldReportProcessor
 from src.rails.processors.list_processor import ListProcessor
 
 # Import the processors we need to test
@@ -31,7 +30,6 @@ class TestProcessorConstructorRegression(unittest.TestCase):
         self.processors_to_test = [
             (TaskProcessor, "TaskProcessor"),
             (ListProcessor, "ListProcessor"),
-            (FieldReportProcessor, "FieldReportProcessor"),
         ]
 
         # These are the forbidden parameter names that should NOT appear

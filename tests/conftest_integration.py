@@ -8,7 +8,6 @@ import pytest
 # Import all fixtures from the fixtures module
 from tests.fixtures.database import (
     db_manager,
-    field_report_processor,
     list_processor,
     supabase_test_client,
     task_processor,
@@ -25,7 +24,6 @@ __all__ = [
     "db_manager",
     "task_processor",
     "list_processor",
-    "field_report_processor",
     "test_personnel",
     "test_site",
     "vector_store_cleanup",
@@ -111,7 +109,6 @@ def pytest_collection_modifyitems(config, items):
                 "supabase_test_client",
                 "task_processor",
                 "list_processor",
-                "field_report_processor",
             ]
         ):
             item.add_marker(pytest.mark.database)

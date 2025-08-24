@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .storage_service import document_storage
 
@@ -46,7 +46,7 @@ class IndexManager:
             ]
 
             # Group by subcategory if applicable
-            subcategories = {}
+            subcategories: Dict[str, Any] = {}
             direct_docs = []
 
             for doc in documents:
@@ -175,7 +175,7 @@ class IndexManager:
                         categories.add("/".join(parts[:i]))
 
             # Update each category's index
-            results = {}
+            results: Dict[str, Any] = {}
             for category in sorted(categories):
                 results[category] = await self.update_index(category, telegram_chat_id)
 

@@ -10,18 +10,18 @@ This script:
 5. Re-indexes 10NetZero content
 """
 
+import asyncio
 import os
 import sys
-import asyncio
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Add src to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
 
-from storage.vector_store import vector_store  # noqa: E402
-from storage.storage_service import DocumentStorage  # noqa: E402
 from core.chunking import chunk_markdown_document  # noqa: E402
+from storage.storage_service import DocumentStorage  # noqa: E402
+from storage.vector_store import vector_store  # noqa: E402
 
 # Initialize document storage
 document_storage = DocumentStorage()

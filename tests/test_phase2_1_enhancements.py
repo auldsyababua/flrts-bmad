@@ -206,8 +206,7 @@ class TestDirectExecutionPath:
         result = router.route("@sarah needs to complete the task")
 
         # Check if assignee was extracted during preprocessing
-        if result.extracted_data.get("assignee") == "sarah":
-            # If extracted, confidence should be set
+        if result:  # If extracted, confidence should be set
             assert result.assignee_confidence == 1.0  # Explicit @mention
         else:
             # If not extracted (no match), confidence not set

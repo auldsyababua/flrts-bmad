@@ -4,10 +4,10 @@ Tests designed to detect and prevent unintended system behaviors
 """
 
 import copy
-import pytest
+from typing import Any, Dict
 from unittest.mock import patch
-from typing import Dict, Any
 
+import pytest
 
 # ============================================================================
 # BACKEND ANTI-MESA TESTS

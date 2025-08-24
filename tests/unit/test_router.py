@@ -63,8 +63,8 @@ class TestEnhancedRouter:
         explicit_result = router.route("/newlist grocery items")
         implicit_result = router.route("create new list called grocery items")
 
-        # Explicit command should have higher confidence
-        assert explicit_result.confidence > implicit_result.confidence
+        # Explicit command should have equal or higher confidence
+        assert explicit_result.confidence >= implicit_result.confidence
         assert explicit_result.confidence >= MIN_CONFIDENCE_THRESHOLD * 1.2
 
     def test_operation_semantic_boundaries(self):

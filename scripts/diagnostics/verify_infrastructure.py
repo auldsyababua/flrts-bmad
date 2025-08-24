@@ -4,12 +4,13 @@ Infrastructure verification script for T3.1.2 completion.
 Verifies that graph memory infrastructure is properly set up.
 """
 
-import os
-import sys
 import asyncio
+import os
 import subprocess
-from dotenv import load_dotenv
+import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Load test environment
 load_dotenv(".env.test")

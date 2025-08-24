@@ -29,8 +29,8 @@ sys.path.insert(
 )
 
 from src.core.llm import process_message
+from src.storage import vector_store
 from src.storage.redis_store import redis_store
-from src.storage.vector_store import vector_store
 
 # Load test fixtures
 FIXTURES_PATH = Path(__file__).parent.parent / "fixtures" / "pdf_content.json"

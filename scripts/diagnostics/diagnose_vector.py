@@ -6,9 +6,10 @@ This helps debug why the bot might not be finding 10NetZero content.
 
 import asyncio
 import os
+
 from dotenv import load_dotenv
-from vector_store import vector_store
 from llm import search_knowledge_base
+from vector_store import vector_store
 from version import VERSION
 
 # Load environment variables

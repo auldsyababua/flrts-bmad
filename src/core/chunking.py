@@ -165,7 +165,7 @@ class DocumentChunker:
         if self.keep_separator:
             # Split but keep separator with the following text
             parts = text.split(separator)
-            splits = []
+            splits: list[str] = []
             for i, part in enumerate(parts):
                 if i > 0 and splits:
                     # Add separator to the beginning of this part

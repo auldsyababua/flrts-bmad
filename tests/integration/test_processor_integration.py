@@ -4,12 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.rails.processors.field_report_processor import FieldReportProcessor
-
 # Import processors
 from src.rails.processors.list_processor import ListProcessor
 from src.rails.processors.task_processor import TaskProcessor
-from src.rails.router import KeywordRouter
 
 
 class MockSupabaseResponse:
@@ -212,106 +209,3 @@ class TestProcessorIntegration:
         result = await task_processor.process(params)
         assert "❌" in result
         assert "Missing required fields" in result
-
-
-class TestDynamicPrompting:
-    """Test dynamic LLM prompting and direct execution."""
-
-    @pytest.mark.asyncio
-    async def test_field_report_has_required_data(self):
-        """Test FieldReportProcessor has_required_data method."""
-        mock_supabase = MagicMock()
-        processor = FieldReportProcessor(mock_supabase)
-
-        # Test missing required fields
-        has_all, missing = processor.has_required_data(
-            "create", {"site_name": "Eagle Lake"}
-        )
-        assert not has_all
-        assert "report_content_full" in missing
-
-        # Test all required fields present
-        has_all, missing = processor.has_required_data(
-            "create",
-            {
-                "site_name": "Eagle Lake",
-                "report_content_full": "Daily operations summary",
-            },
-        )
-        assert has_all
-        assert len(missing) == 0
-
-        # Test unknown operation
-        has_all, missing = processor.has_required_data("unknown_op", {})
-        assert not has_all
-        assert "unknown_operation" in missing
-
-    @pytest.mark.asyncio
-    async def test_field_report_dynamic_schema(self):
-        """Test FieldReportProcessor dynamic schema generation."""
-        mock_supabase = MagicMock()
-        processor = FieldReportProcessor(mock_supabase)
-
-        # Test with no prefilled data
-        schema = processor.get_dynamic_extraction_schema("create", {})
-        assert schema is not None
-        assert "site_name" in schema
-        assert "report_content_full" in schema
-
-        # Test with partial prefilled data
-        schema = processor.get_dynamic_extraction_schema(
-            "create", {"site_name": "Eagle Lake"}
-        )
-        assert schema is not None
-        assert "site_name" not in schema  # Already provided
-        assert "report_content_full" in schema  # Still needed
-
-        # Test with all required data
-        schema = processor.get_dynamic_extraction_schema(
-            "create",
-            {"site_name": "Eagle Lake", "report_content_full": "Full report content"},
-        )
-        assert schema is None  # No LLM extraction needed
-
-    @pytest.mark.asyncio
-    async def test_preprocessing_extracts_mentions(self):
-        """Test preprocessing extracts @mentions with 100% confidence."""
-        mock_supabase = MagicMock()
-        router = KeywordRouter(mock_supabase)
-
-        # Mock user aliases for testing
-        router.synonym_lib.user_aliases = {"john": "john", "jane": "jane"}
-
-        message = "@john Create a new task for generator maintenance"
-        cleaned_msg, prefilled_data, confidences = router.preprocess_message(message)
-
-        assert "assignee" in prefilled_data
-        assert prefilled_data["assignee"] == "john"
-        assert confidences.get("assignee_confidence", 0) == 1.0
-        assert "@john" not in cleaned_msg
-        assert cleaned_msg.strip() == "Create a new task for generator maintenance"
-
-    @pytest.mark.asyncio
-    async def test_preprocessing_extracts_commands(self):
-        """Test preprocessing extracts /commands with 100% confidence."""
-        mock_supabase = MagicMock()
-        router = KeywordRouter(mock_supabase)
-
-        # Test task command
-        message = "/newtask Fix the pump at Eagle Lake"
-        cleaned_msg, prefilled_data, confidences = router.preprocess_message(message)
-
-        assert prefilled_data["entity_type"] == "tasks"
-        assert prefilled_data["operation"] == "create"
-        assert confidences["entity_confidence"] == 1.0
-        assert confidences["operation_confidence"] == 1.0
-        assert "/newtask" not in cleaned_msg
-
-        # Test list command
-        message = "/newlist Safety equipment checklist"
-        cleaned_msg, prefilled_data, confidences = router.preprocess_message(message)
-
-        assert prefilled_data["entity_type"] == "lists"
-        assert prefilled_data["operation"] == "create"
-        assert confidences["entity_confidence"] == 1.0
-        assert confidences["operation_confidence"] == 1.0

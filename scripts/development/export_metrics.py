@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv  # noqa: E402
+
 from src.core.benchmarks import get_performance_monitor  # noqa: E402
 from src.storage.storage_service import StorageService  # noqa: E402
 

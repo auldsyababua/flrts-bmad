@@ -3,8 +3,7 @@ openai>=1.35.0
 python-dotenv==1.0.0
 pyyaml==6.0.1
 requests>=2.31.0
-upstash-redis>=0.15.0
-upstash-vector>=0.3.0
+redis>=4.5.5
 sentence-transformers>=2.2.2
 supabase>=2.11.0
 boto3>=1.35.0
@@ -13,3 +12,7 @@ uvicorn>=0.30.0
 mem0ai>=0.0.15
 aiohttp>=3.8.0
 psutil>=5.9.0
+
+# Type checking stubs
+types-PyYAML>=6.0.0
+types-requests>=2.31.0

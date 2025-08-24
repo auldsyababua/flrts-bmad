@@ -10,14 +10,14 @@ This version creates a single Markdown file with:
 5. Interactive table of contents
 """
 
-import subprocess
-from datetime import datetime
-from typing import List, Dict, Tuple
-import sys
-import os
 import argparse
 import json
+import os
+import subprocess
+import sys
 from collections import defaultdict
+from datetime import datetime
+from typing import Dict, List, Tuple
 
 # Repository configuration
 REPOS = {

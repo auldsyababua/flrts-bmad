@@ -5,12 +5,13 @@ Anti-Mesa Test Runner for FLRTS Processors
 This script runs all anti-mesa pattern tests with comprehensive reporting.
 """
 
-import sys
-import os
-import pytest
 import json
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
+
+import pytest
 
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

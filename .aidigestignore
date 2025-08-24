@@ -1,0 +1,50 @@
+# Exclude version control
+.git/
+
+# Exclude dependencies
+node_modules/
+venv/
+.venv/
+
+# Exclude IDE and editor files
+.vscode/
+.idea/
+.cursor/
+
+# Exclude build artifacts and caches
+dist/
+build/
+__pycache__/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Exclude OS-specific files
+.DS_Store
+Thumbs.db
+
+# Exclude log files
+*.log
+
+# Exclude the digest file itself
+codebase.md
+
+# Exclude other large, non-essential directories
+.bmad-core/
+.bmad-infrastructure-devops/
+.claude/
+.coderabbit/
+.gemini/
+.githooks/
+.github/
+.qwen/
+.superdesign/
+10nz_kb/
+ai_docs/
+cf/
+docs/
+scripts/
+temp_removal/
+tests/
+testsprite_tests/
+web-bundles/

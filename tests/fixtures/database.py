@@ -8,7 +8,6 @@ import pytest
 from supabase import Client, create_client
 from supabase.lib.client_options import ClientOptions
 
-from src.rails.processors.field_report_processor import FieldReportProcessor
 from src.rails.processors.list_processor import ListProcessor
 from src.rails.processors.task_processor import TaskProcessor
 
@@ -40,7 +39,6 @@ class TestDatabaseManager:
             "tasks",
             "lists",
             "list_items",
-            "field_reports",
             "documents",
             "document_chunks",
             "personnel",
@@ -174,12 +172,6 @@ async def task_processor(supabase_test_client) -> TaskProcessor:
 async def list_processor(supabase_test_client) -> ListProcessor:
     """List processor for integration testing."""
     return ListProcessor(supabase_test_client)
-
-
-@pytest.fixture
-async def field_report_processor(supabase_test_client) -> FieldReportProcessor:
-    """Field report processor for integration testing."""
-    return FieldReportProcessor(supabase_test_client)
 
 
 @pytest.fixture

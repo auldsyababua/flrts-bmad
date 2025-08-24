@@ -393,7 +393,7 @@ class DynamicPromptGenerator:
 
     def generate_smart_function_prompt(
         self, context: PromptContext
-    ) -> Tuple[str, Optional[str]]:
+    ) -> Tuple[str, Optional[Dict[str, Any]]]:
         """Generate smart function calling prompt with schema.
 
         T2.1.2: Returns both prompt and function schema for direct injection.
@@ -440,7 +440,11 @@ class DynamicPromptGenerator:
         )
 
         # Build parameter schema dynamically
-        parameters = {"type": "object", "properties": {}, "required": []}
+        parameters: Dict[str, Any] = {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        }
 
         # Add fields based on entity type and operation
         if context.entity_type == "lists":
@@ -453,14 +457,14 @@ class DynamicPromptGenerator:
                     "type": "array",
                     "items": {"type": "string"},
                 }
-                parameters["required"] = ["list_name"]
+                parameters["required"].append("list_name")
             elif context.operation in ["add_items", "remove_items"]:
                 parameters["properties"]["list_name"] = {"type": "string"}
                 parameters["properties"]["items"] = {
                     "type": "array",
                     "items": {"type": "string"},
                 }
-                parameters["required"] = ["list_name", "items"]
+                parameters["required"].extend(["list_name", "items"])
         elif context.entity_type == "tasks":
             if context.operation == "create":
                 parameters["properties"]["task_title"] = {
@@ -475,11 +479,11 @@ class DynamicPromptGenerator:
                     "type": "string",
                     "description": "Due date",
                 }
-                parameters["required"] = ["task_title"]
+                parameters["required"].append("task_title")
             elif context.operation == "reassign":
                 parameters["properties"]["task_id"] = {"type": "string"}
                 parameters["properties"]["new_assignee"] = {"type": "string"}
-                parameters["required"] = ["task_id", "new_assignee"]
+                parameters["required"].extend(["task_id", "new_assignee"])
 
         # Add extracted data as defaults
         if context.extracted_data:
@@ -527,10 +531,10 @@ class DynamicPromptGenerator:
             estimated_tokens = 0  # No LLM usage
         elif strategy == "focused_llm":
             prompt = self._generate_focused_prompt(context)
-            estimated_tokens = len(prompt.split()) * 1.3  # Rough estimate
+            estimated_tokens = int(len(prompt.split()) * 1.3)  # Rough estimate
         else:
             prompt = self.generate_system_prompt(context)
-            estimated_tokens = len(prompt.split()) * 1.3
+            estimated_tokens = int(len(prompt.split()) * 1.3)
 
         return {
             "execution_strategy": strategy,

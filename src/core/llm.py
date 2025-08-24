@@ -12,23 +12,16 @@ from core.agents import detect_agent_in_message, load_agent_prompt
 from core.api_client import RetryConfig, get_resilient_client
 from core.benchmarks import async_benchmark, get_performance_monitor
 from core.chunking import chunk_markdown_document
-from core.config import (
-    CONVERSATION_MAX_MESSAGES,
-    CONVERSATION_TTL_HOURS,
-    GPT_MODEL,
-    MAX_TOKENS,
-    OPENAI_API_KEY,
-    SYSTEM_PROMPT,
-    TEMPERATURE,
-)
+from core.config import (CONVERSATION_MAX_MESSAGES, CONVERSATION_TTL_HOURS,
+                         GPT_MODEL, MAX_TOKENS, OPENAI_API_KEY, SYSTEM_PROMPT,
+                         TEMPERATURE)
 from core.memory import bot_memory
 from src.rails.dynamic_prompts import DynamicPromptGenerator, PromptContext
 from src.rails.router import KeywordRouter, RouteResult
-
+from storage import vector_store
 # Legacy tools.py imports removed - production only uses Supabase + Vector
 # from src.core.tools import (...) - REMOVED
 from storage.redis_store import redis_store
-from storage.vector_store import vector_store
 
 # Initialize resilient OpenAI client with custom retry config
 retry_config = RetryConfig(
@@ -147,7 +140,7 @@ class ConversationManager:
         """
         self.max_messages = max_messages
         self.ttl_seconds = ttl_hours * 3600
-        self.monitor = None
+        self.monitor: Optional[Any] = None
 
     async def _ensure_monitor(self):
         """Ensure performance monitor is initialized."""
@@ -250,11 +243,11 @@ conversation_manager = ConversationManager(
 )
 
 # Cache for function results and schemas with memory limits
-_function_result_cache = {}
-_function_schema_cache = None
+_function_result_cache: Dict[str, Any] = {}
+_function_schema_cache: Optional[List[Dict[str, Any]]] = None
 _MAX_CACHE_SIZE = 100
 _CACHE_TTL_SECONDS = 3600
-_cache_timestamps = {}
+_cache_timestamps: Dict[str, float] = {}
 
 # Initialize the Rails KeywordRouter and DynamicPromptGenerator
 try:
@@ -262,11 +255,13 @@ try:
     from storage.storage_service import DocumentStorage
 
     storage = DocumentStorage()
-    keyword_router = KeywordRouter(supabase_client=storage.supabase)
+    keyword_router: Optional[KeywordRouter] = KeywordRouter(
+        supabase_client=storage.supabase
+    )
     # Load user aliases asynchronously on first use
 
     # Initialize dynamic prompt generator for T2.1.2
-    prompt_generator = DynamicPromptGenerator()
+    prompt_generator: Optional[DynamicPromptGenerator] = DynamicPromptGenerator()
 except Exception as e:
     logging.getLogger(__name__).error(f"Failed to initialize Rails components: {e}")
     keyword_router = None
@@ -274,7 +269,7 @@ except Exception as e:
 
 
 async def get_conversation_history(
-    chat_id: str, max_messages: int = None
+    chat_id: str, max_messages: Optional[int] = None
 ) -> List[Dict[str, str]]:
     """Get conversation history for a chat.
 
@@ -333,13 +328,15 @@ async def search_knowledge_base(
         # Use the new search_with_full_content method to get full documents
         # Note: search_with_full_content doesn't support namespace parameter yet
         # We need to use the regular search method with namespace
-        results = await vector_store.search(
-            query, top_k=3, include_metadata=True, namespace=""
-        )
-        logger.info(
-            f"Vector search for '{query}' (namespace={chat_id}) returned {len(results)} results"
-        )
-        return results
+        if vector_store:
+            results = await vector_store.search(
+                query, top_k=3, include_metadata=True, namespace=""
+            )
+            logger.info(
+                f"Vector search for '{query}' (namespace={chat_id}) returned {len(results)} results"
+            )
+            return results
+        return []
     except Exception as e:
         logger.error(f"Vector search error for query '{query}': {e}")
         # Fallback to Supabase search if vector search fails
@@ -348,15 +345,16 @@ async def search_knowledge_base(
 
             if document_storage:
                 supabase_results = await document_storage.search_documents(query)
-                return [
-                    {
-                        "id": r.get("id", ""),
-                        "content": r.get("content", ""),
-                        "score": 0.5,
-                        "metadata": r.get("metadata", {}),
-                    }
-                    for r in supabase_results[:3]
-                ]
+                if supabase_results:
+                    return [
+                        {
+                            "id": r.get("id", ""),
+                            "content": r.get("content", ""),
+                            "score": 0.5,
+                            "metadata": r.get("metadata", {}),
+                        }
+                        for r in supabase_results[:3]
+                    ]
         except Exception as fallback_error:
             logger.error(f"Fallback search also failed: {fallback_error}")
 
@@ -365,7 +363,7 @@ async def search_knowledge_base(
 
 
 async def _process_rails_command(
-    route_result: RouteResult, chat_id: str, original_message: str = None
+    route_result: RouteResult, chat_id: str, original_message: Optional[str] = None
 ) -> Optional[str]:
     """
     Process a command routed by the KeywordRouter.
@@ -388,54 +386,45 @@ async def _process_rails_command(
     operation = route_result.operation
     extracted_data = route_result.extracted_data or {}
 
-    # T2.1.1: Use cleaned message if available
-    cleaned_message = extracted_data.get("cleaned_message", original_message)
-
     if not entity_type:
         logger.warning("Router returned a result without an entity type.")
         return None
 
     try:
         # Import and instantiate the appropriate processor
-        processor_instance = None
+        from src.rails.processors.base_processor import BaseProcessor
 
-        if entity_type == "lists":
-            from src.rails.processors.list_processor import ListProcessor
+        processor_instance: Optional[BaseProcessor] = None
 
-            processor_instance = ListProcessor(supabase_client=storage.supabase)
-        elif entity_type == "tasks":
-            from src.rails.processors.task_processor import TaskProcessor
+        if storage and storage.supabase:
+            if entity_type == "lists":
+                from src.rails.processors.list_processor import ListProcessor
 
-            processor_instance = TaskProcessor(supabase_client=storage.supabase)
-        elif entity_type == "field_reports":
-            from src.rails.processors.field_report_processor import FieldReportProcessor
+                processor_instance = ListProcessor(supabase_client=storage.supabase)
+            elif entity_type == "tasks":
+                from src.rails.processors.task_processor import TaskProcessor
 
-            processor_instance = FieldReportProcessor(supabase_client=storage.supabase)
-        else:
-            logger.error(f"Unknown entity type: {entity_type}")
-            return f"Error: Unknown command type '{entity_type}'."
+                processor_instance = TaskProcessor(supabase_client=storage.supabase)
+            # Field reports - pushed to post-MVP
+            # elif entity_type == "field_reports":
+            #     from src.rails.processors.field_report_processor import FieldReportProcessor
+            #     processor_instance = FieldReportProcessor(supabase_client=storage.supabase)
+            else:
+                logger.error(f"Unknown entity type: {entity_type}")
+                return f"Error: Unknown command type '{entity_type}'."
 
         if not processor_instance:
             return f"Error: Command processor for '{entity_type}' is not available."
 
-        # T2.1.1: Prepare parameters with cleaned data for processor
-        params = {
-            "operation": operation,
-            "chat_id": chat_id,
-            **extracted_data,  # Include any extracted data from the router
-            "target_users": (
-                route_result.target_users
-                if hasattr(route_result, "target_users")
-                else []
-            ),
-            "confidence": route_result.confidence,
-            "use_direct_execution": route_result.use_direct_execution,
-            "cleaned_message": cleaned_message,  # Pass cleaned message to processor
-        }
-
-        # Execute the processor
-        response = await processor_instance.process(params)
-        return response
+        # Execute the processor using execute_direct method
+        response = await processor_instance.execute_direct(
+            operation=operation,
+            extracted_data=extracted_data,
+            user_id=chat_id,  # Using chat_id as user_id
+        )
+        if response:
+            return response.get("message", "Operation completed successfully")
+        return "Operation completed successfully"
 
     except Exception as e:
         logger.error(
@@ -533,13 +522,13 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
                     logger.info(
                         f"Focused LLM execution for {route_result.entity_type}.{route_result.operation}"
                     )
-                    # Store context for use in LLM processing
-                    route_result.prompt_context = prompt_context
-                    route_result.dynamic_prompt = (
-                        prompt_generator.generate_optimized_system_prompt(
-                            prompt_context
-                        )
-                    )
+                    # Context for LLM processing - not used in current implementation
+                    # route_result.prompt_context = prompt_context
+                    # route_result.dynamic_prompt = (
+                    #     prompt_generator.generate_optimized_system_prompt(
+                    #         prompt_context
+                    #     )
+                    # )
                     # Process with Rails command using focused approach
                     response = await _process_rails_command(
                         route_result, chat_id, user_message
@@ -646,7 +635,8 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
                 messages.insert(0, {"role": "system", "content": agent_system_prompt})
 
         # Track conversation size
-        monitor.track_conversation_size(chat_id, len(messages))
+        if monitor:
+            monitor.track_conversation_size(chat_id, len(messages))
 
         # T2.1.2: Build enhanced message with dynamic prompting
         enhanced_message = user_message
@@ -703,10 +693,13 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
             max_tokens=MAX_TOKENS,
         )
 
+        if not response:
+            return "I'm sorry, I couldn't process your request."
+
         message = response.choices[0].message
 
         # If GPT wants to call a function
-        if message.function_call:
+        if message and message.function_call:
             function_name = message.function_call.name
             function_args = json.loads(message.function_call.arguments)
 
@@ -740,7 +733,7 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
                 {
                     "role": "function",
                     "name": function_name,
-                    "content": json.dumps(function_result, separators=(",", ":")),
+                    "content": json.dumps(function_result, separators=((",", ":"))),
                 }
             )
 
@@ -752,6 +745,9 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
                 max_tokens=MAX_TOKENS,
             )
 
+            if not final_response:
+                return "I'm sorry, I couldn't process your request."
+
             final_content = final_response.choices[0].message.content
 
             # Add source documents if available
@@ -759,7 +755,8 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
                 sources_text = "\n\n📚 Sources:\n" + "\n".join(
                     [f"• {doc['title']} - {doc['url']}" for doc in source_documents[:3]]
                 )
-                final_content += sources_text
+                if final_content:
+                    final_content += sources_text
 
             await add_to_conversation_history(chat_id, "assistant", final_content)
 
@@ -797,7 +794,8 @@ async def process_message(user_message: str, chat_id: str = "default") -> str:
             sources_text = "\n\n📚 Sources:\n" + "\n".join(
                 [f"• {doc['title']} - {doc['url']}" for doc in source_documents[:3]]
             )
-            assistant_content += sources_text
+            if assistant_content:
+                assistant_content += sources_text
 
         await add_to_conversation_history(chat_id, "assistant", assistant_content)
 
@@ -837,7 +835,7 @@ def is_uuid(value: str) -> bool:
 
 
 async def resolve_document_reference(
-    reference: str,
+    reference: Optional[str],
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve a document reference to (file_path, document_id, content).
 
@@ -848,6 +846,9 @@ async def resolve_document_reference(
         Tuple of (file_path, document_id, content) - some may be None
     """
     logger = logging.getLogger(__name__)
+
+    if not reference:
+        return None, None, None
 
     # Check if it's a UUID (Supabase document ID)
     if is_uuid(reference):
@@ -972,7 +973,8 @@ def _determine_missing_fields(route_result: RouteResult) -> List[str]:
         elif route_result.operation == "reassign":
             if "new_assignee" not in extracted and "assignee" not in extracted:
                 missing.append("new_assignee")
-    elif route_result.entity_type == "field_reports":
+        # Field reports - pushed to post-MVP
+        # elif route_result.entity_type == "field_reports":
         if (
             route_result.operation == "create"
             and "site" not in extracted
@@ -993,6 +995,9 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
             folder = args.get("folder")
             doc_type = args.get("type", "note")
             tags = args.get("tags", [])
+
+            if not title or not content:
+                return {"success": False, "error": "Title and content are required."}
 
             # Get chat_id from context if available
             chat_id = args.get("chat_id", "default")
@@ -1059,12 +1064,13 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
                 logging.info(f"📄 Chunking document into {len(chunks)} chunks")
                 for i, (chunk_text, chunk_metadata) in enumerate(chunks):
                     chunk_id = f"{doc_id}_chunk_{i}"
-                    await vector_store.embed_and_store(
-                        document_id=chunk_id,
-                        content=chunk_text,
-                        metadata=chunk_metadata,
-                        namespace="",
-                    )
+                    if vector_store:
+                        await vector_store.embed_and_store(
+                            document_id=chunk_id,
+                            content=chunk_text,
+                            metadata=chunk_metadata,
+                            namespace="",
+                        )
 
                     # Store chunk reference in Supabase
                     await document_storage.store_document_chunk(
@@ -1127,10 +1133,14 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
                     doc_ref = document_id
                 else:
                     # Use file path for backward compatibility
-                    success = await document_storage.update_document(
-                        file_path, updated_content
-                    )
-                    doc_ref = file_path.replace("/", "_").replace(".md", "")
+                    if file_path:
+                        success = await document_storage.update_document(
+                            file_path, updated_content
+                        )
+                        doc_ref = file_path.replace("/", "_").replace(".md", "")
+                    else:
+                        success = False
+                        doc_ref = ""
 
                 if success:
                     # Delete old chunks from vector store
@@ -1138,10 +1148,12 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
                     old_chunks = await document_storage.get_document_chunks(
                         document_id or doc_ref
                     )
-                    for chunk in old_chunks:
-                        await vector_store.delete_document(
-                            chunk["vector_id"], namespace=""
-                        )
+                    if old_chunks:
+                        for chunk in old_chunks:
+                            if vector_store:
+                                await vector_store.delete_document(
+                                    chunk["vector_id"], namespace=""
+                                )
 
                     # Re-chunk and store the updated document
                     metadata = {
@@ -1167,12 +1179,13 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
                     logging.info(f"📄 Re-chunking document into {len(chunks)} chunks")
                     for i, (chunk_text, chunk_metadata) in enumerate(chunks):
                         chunk_id = f"{document_id or doc_ref}_chunk_{i}"
-                        await vector_store.embed_and_store(
-                            document_id=chunk_id,
-                            content=chunk_text,
-                            metadata=chunk_metadata,
-                            namespace="",
-                        )
+                        if vector_store:
+                            await vector_store.embed_and_store(
+                                document_id=chunk_id,
+                                content=chunk_text,
+                                metadata=chunk_metadata,
+                                namespace="",
+                            )
 
                         # Store chunk reference
                         await document_storage.store_document_chunk(
@@ -1256,21 +1269,24 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
 
                 # Convert to expected format
                 formatted_results = []
-                for doc in results:
-                    formatted_results.append(
-                        {
-                            "id": doc.get("id"),
-                            "title": doc.get("metadata", {}).get("title", "Untitled"),
-                            "snippet": (
-                                doc.get("content", "")[:200] + "..."
-                                if len(doc.get("content", "")) > 200
-                                else doc.get("content", "")
-                            ),
-                            "path": doc.get("file_path", ""),
-                            "category": doc.get("category"),
-                            "tags": doc.get("tags", []),
-                        }
-                    )
+                if results:
+                    for doc in results:
+                        formatted_results.append(
+                            {
+                                "id": doc.get("id"),
+                                "title": doc.get("metadata", {}).get(
+                                    "title", "Untitled"
+                                ),
+                                "snippet": (
+                                    doc.get("content", "")[:200] + "..."
+                                    if len(doc.get("content", "")) > 200
+                                    else doc.get("content", "")
+                                ),
+                                "path": doc.get("file_path", ""),
+                                "category": doc.get("category"),
+                                "tags": doc.get("tags", []),
+                            }
+                        )
 
                 return {
                     "success": True,
@@ -1306,18 +1322,21 @@ async def execute_function(function_name: str, args: Dict[str, Any]) -> Dict[str
 
                 # Convert to expected format
                 formatted_docs = []
-                for doc in documents:
-                    formatted_docs.append(
-                        {
-                            "id": doc.get("id"),
-                            "title": doc.get("metadata", {}).get("title", "Untitled"),
-                            "type": doc.get("metadata", {}).get("type", "note"),
-                            "category": doc.get("category"),
-                            "created": doc.get("created_at"),
-                            "path": doc.get("file_path", ""),
-                            "tags": doc.get("tags", []),
-                        }
-                    )
+                if documents:
+                    for doc in documents:
+                        formatted_docs.append(
+                            {
+                                "id": doc.get("id"),
+                                "title": doc.get("metadata", {}).get(
+                                    "title", "Untitled"
+                                ),
+                                "type": doc.get("metadata", {}).get("type", "note"),
+                                "category": doc.get("category"),
+                                "created": doc.get("created_at"),
+                                "path": doc.get("file_path", ""),
+                                "tags": doc.get("tags", []),
+                            }
+                        )
 
                 return {
                     "success": True,

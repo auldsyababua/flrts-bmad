@@ -131,7 +131,7 @@ def log_operation(logger: logging.Logger, level: int, message: str, **kwargs) ->
         **kwargs: Additional fields (user_id, operation, entity_type, etc.)
     """
     # Create a log record with extra fields
-    extra = {}
+    extra: Dict[str, Any] = {}
     for key, value in kwargs.items():
         if value is not None:
             extra[key] = value

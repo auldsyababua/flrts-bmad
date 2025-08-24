@@ -6,13 +6,13 @@ utility functions for comprehensive processor testing.
 """
 
 import asyncio
+import json
 import random
 import string
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Callable
-from unittest.mock import MagicMock
 from contextlib import contextmanager
-import json
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
+from unittest.mock import MagicMock
 
 
 class MockSupabaseClient:

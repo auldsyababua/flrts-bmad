@@ -26,7 +26,7 @@ class TestPromptGeneration:
         # EXACT length check
         assert len(prompt) <= 40, f"Prompt too long: {len(prompt)} chars - '{prompt}'"
         assert prompt == "Extract list_name for lists create."
-        assert len(prompt) == 36  # Exact character count
+        assert len(prompt) == 35  # Exact character count
 
     def test_medium_confidence_prompt_exact_range(self):
         """Medium confidence prompts are BETWEEN 50-200 characters."""
@@ -47,7 +47,7 @@ class TestPromptGeneration:
             prompt
             == "Process tasks. operation: reassign. Extract: task_id, new_assignee, reason."
         )
-        assert len(prompt) == 77  # Exact character count
+        assert len(prompt) == 75  # Exact character count
 
     def test_system_prompt_includes_exact_context(self):
         """System prompts include EXACT context information."""

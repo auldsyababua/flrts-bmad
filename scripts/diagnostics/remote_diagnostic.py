@@ -4,9 +4,9 @@ Remote diagnostic script to check vector store status in production.
 This script is designed to be run on Render to diagnose issues.
 """
 
+import asyncio
 import os
 import sys
-import asyncio
 from datetime import datetime
 
 

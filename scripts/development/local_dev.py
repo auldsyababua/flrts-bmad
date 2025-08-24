@@ -31,13 +31,14 @@ import logging
 import os
 import sys
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Add src to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 # These imports must come after the path setup
 from telegram import Update  # noqa: E402
+
 from bot.webhook_bot import WebhookTelegramBot  # noqa: E402
 
 # Set up detailed logging for development

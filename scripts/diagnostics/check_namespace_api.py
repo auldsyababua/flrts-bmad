@@ -6,8 +6,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from upstash_vector import Index
 import inspect
+
+from upstash_vector import Index
 
 # Initialize with dummy values just to inspect the API
 try:

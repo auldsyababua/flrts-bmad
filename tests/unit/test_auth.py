@@ -46,7 +46,7 @@ class TestIsUserAuthorized:
 
         try:
             assert is_user_authorized(user_id=12345) is True
-            assert is_user_authorized(user_id=99999) is False
+            assert is_user_authorized(user_id=88888) is False
         finally:
             auth.AUTHORIZED_USER_IDS = original_ids
 

@@ -4,9 +4,10 @@ List and view contents of the vector store in human-readable format.
 """
 
 import asyncio
-import sys
-from vector_store import vector_store
 import json
+import sys
+
+from vector_store import vector_store
 
 
 async def list_all_documents(limit: int = 100):

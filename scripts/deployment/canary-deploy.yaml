@@ -1,0 +1,175 @@
+# FLRTS-BMAD Canary Deployment Configuration
+# For Small Team (5-20 users) Progressive Rollout
+
+name: canary-deployment
+version: 1.0.0
+
+stages:
+  # Stage 1: Initial Canary (10% traffic)
+  - name: canary-10
+    traffic_split:
+      stable: 90
+      canary: 10
+    duration: 30m
+    health_checks:
+      - endpoint: /health
+        expected_status: 200
+        interval: 30s
+      - endpoint: /health/story-1-6
+        expected_status: 200
+        interval: 60s
+    rollback_triggers:
+      - error_rate: ">5%"
+      - response_time: ">500ms"
+      - memory_usage: ">80%"
+    
+  # Stage 2: Expanded Canary (30% traffic)  
+  - name: canary-30
+    traffic_split:
+      stable: 70
+      canary: 30
+    duration: 30m
+    health_checks:
+      - endpoint: /health
+        expected_status: 200
+        interval: 30s
+    rollback_triggers:
+      - error_rate: ">3%"
+      - response_time: ">400ms"
+      - direct_execution_failure: ">10%"
+    
+  # Stage 3: Half Rollout (50% traffic)
+  - name: canary-50
+    traffic_split:
+      stable: 50
+      canary: 50
+    duration: 1h
+    health_checks:
+      - endpoint: /health
+        expected_status: 200
+        interval: 60s
+    rollback_triggers:
+      - error_rate: ">2%"
+      - response_time: ">350ms"
+      - story_16_confidence: "<0.8"
+    
+  # Stage 4: Full Rollout (100% traffic)
+  - name: production
+    traffic_split:
+      stable: 0
+      canary: 100
+    health_checks:
+      - endpoint: /health
+        expected_status: 200
+        interval: 5m
+    post_deployment:
+      - notify: team
+      - update_documentation: true
+      - tag_release: true
+
+metrics:
+  # Story 1.6 Direct Execution Metrics
+  story_16:
+    - name: direct_execution_rate
+      threshold: ">60%"
+      description: "Percentage of commands handled by direct execution"
+    - name: router_confidence
+      threshold: ">0.8"
+      description: "Average confidence score for router decisions"
+    - name: bypass_llm_rate
+      threshold: ">50%"
+      description: "Rate of LLM bypass for performance"
+    - name: response_time_p95
+      threshold: "<500ms"
+      description: "95th percentile response time"
+  
+  # System Metrics
+  system:
+    - name: cpu_usage
+      threshold: "<70%"
+    - name: memory_usage
+      threshold: "<75%"
+    - name: error_rate
+      threshold: "<1%"
+    - name: database_pool_usage
+      threshold: "<80%"
+
+notifications:
+  channels:
+    - type: telegram
+      bot_token: "${TELEGRAM_BOT_TOKEN}"
+      chat_id: "${ADMIN_CHAT_ID}"
+    - type: email
+      smtp_server: "${SMTP_SERVER}"
+      recipients: ["team@example.com"]
+  
+  events:
+    - stage_promotion: true
+    - rollback: true
+    - deployment_complete: true
+    - performance_degradation: true
+
+rollback:
+  automatic: true
+  conditions:
+    - consecutive_health_check_failures: 3
+    - error_rate_spike: ">10%"
+    - story_16_failure: true
+  strategy: immediate  # or "gradual"
+  
+testing:
+  pre_deployment:
+    - name: "Unit Tests"
+      command: "pytest tests/unit/"
+      required: true
+    - name: "Story 1.6 Router Tests"
+      command: "pytest tests/unit/test_router_enhanced_phrases.py"
+      required: true
+    - name: "Integration Tests"
+      command: "pytest tests/integration/"
+      required: false
+  
+  smoke_tests:
+    - name: "Health Check"
+      endpoint: "/health"
+      expected_status: 200
+    - name: "Direct Execution Test"
+      command: 'curl -X POST /api/message -d {"message": "/newtask test"}'
+      expected_response: "success"
+
+environment_variables:
+  canary:
+    CANARY_VERSION: "${GIT_SHA}"
+    ENABLE_ENHANCED_LOGGING: "true"
+    STORY_16_DEBUG: "true"
+  stable:
+    CANARY_VERSION: "stable"
+    ENABLE_ENHANCED_LOGGING: "false"
+    STORY_16_DEBUG: "false"
+
+deployment_platforms:
+  - name: render
+    api_key: "${RENDER_API_KEY}"
+    service_id: "${RENDER_SERVICE_ID}"
+  - name: railway
+    api_key: "${RAILWAY_API_KEY}"
+    project_id: "${RAILWAY_PROJECT_ID}"
+  - name: docker_swarm
+    manager_url: "${SWARM_MANAGER_URL}"
+    
+# Small Team Optimizations
+small_team:
+  max_concurrent_users: 20
+  database_pool_size: 5
+  cache_ttl: 3600
+  direct_execution_cache: true
+  llm_fallback_timeout: 5000
+  
+# Story 1.6 Specific Configuration  
+story_16:
+  confidence_threshold: 0.8
+  synonym_library_version: "1.0.0"
+  router_timeout_ms: 50
+  direct_execution_timeout_ms: 500
+  performance_logging: true
+  metrics_collection: true

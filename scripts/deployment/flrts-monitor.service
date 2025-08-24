@@ -1,0 +1,19 @@
+[Unit]
+Description=FLRTS Performance Monitoring Service
+After=network.target
+Requires=flrts.service
+
+[Service]
+Type=simple
+User=flrts
+Group=flrts
+WorkingDirectory=/opt/flrts-bmad
+Environment="MONITORING_INTERVAL=60"
+Environment="HEALTH_URL=http://localhost:8000/health"
+EnvironmentFile=/opt/flrts-bmad/.env
+ExecStart=/usr/bin/python3 /opt/flrts-bmad/src/monitoring/performance_alerts.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

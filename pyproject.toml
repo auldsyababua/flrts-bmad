@@ -17,7 +17,6 @@ dependencies = [
     "openai>=1.51.2",
     "python-dotenv>=1.0.0",
     "redis>=4.5.5",
-    "upstash-vector>=0.3.3",
     "aiohttp>=3.9.1",
     "flask>=3.0.0",
     "supabase>=2.3.1",
@@ -58,5 +57,5 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-# Generate JSON report with timestamps for historical tracking
-addopts = "--json-report --json-report-file=tests/test_results/latest.json"
+# Generate JSON report with timestamps for historical tracking (if plugin is installed)
+# addopts = "--json-report --json-report-file=tests/test_results/latest.json"

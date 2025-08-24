@@ -25,6 +25,7 @@ class RouteResult:
     entity_confidence: Optional[float] = None  # Confidence in entity type detection
     operation_confidence: Optional[float] = None  # Confidence in operation detection
     assignee_confidence: Optional[float] = None  # Confidence in assignee extraction
+    _match_length: int = 0  # Internal field for tiebreaker comparisons
 
 
 class SynonymLibrary:
@@ -41,9 +42,13 @@ class SynonymLibrary:
                 "view",
                 "what's",
                 "what is",
+                "what are",
                 "get",
                 "fetch",
                 "see",
+                "check",
+                "review",
+                "look at",
             ],
             "create": [
                 "create",
@@ -54,6 +59,9 @@ class SynonymLibrary:
                 "begin",
                 "init",
                 "build",
+                "generate",
+                "setup",
+                "establish",
             ],
             "add_items": [
                 "add to",
@@ -64,6 +72,10 @@ class SynonymLibrary:
                 "should have",
                 "add",
                 "include",
+                "insert",
+                "throw on",
+                "tack on",
+                "also need",
             ],
             "remove_items": [
                 "remove from",
@@ -71,17 +83,28 @@ class SynonymLibrary:
                 "delete from",
                 "take out",
                 "doesn't need",
+                "don't need",
                 "remove",
                 "drop",
+                "strike",
+                "cross off",
+                "scratch",
+                "pull",
             ],
             "complete": [
                 "complete",
                 "finish",
                 "done with",
+                "done",
                 "mark complete",
+                "mark done",
                 "check off",
                 "tick",
                 "finished",
+                "completed",
+                "close",
+                "resolve",
+                "accomplish",
             ],
             "assign": [
                 "assign to",
@@ -90,6 +113,8 @@ class SynonymLibrary:
                 "assign",
                 "give to",
                 "hand to",
+                "delegate to",
+                "allocate to",
             ],
             "reassign": [
                 "reassign to",
@@ -97,18 +122,50 @@ class SynonymLibrary:
                 "move to",
                 "give to",
                 "hand off to",
+                "switch to",
+                "change owner to",
             ],
-            "delete": ["delete", "remove", "trash", "destroy", "kill", "drop", "erase"],
+            "delete": [
+                "delete",
+                "remove",
+                "trash",
+                "destroy",
+                "kill",
+                "drop",
+                "erase",
+                "eliminate",
+                "purge",
+                "wipe",
+            ],
             # Ownership terms
-            "my": ["my", "mine", "me", "i", "personal"],
+            "my": ["my", "mine", "me", "i", "personal", "own"],
             # Entity synonyms
-            "task": ["task", "todo", "item", "job", "assignment", "work"],
-            "reminder": ["reminder", "remind", "alert", "notification"],
-            "list": ["list", "checklist", "items", "things"],
-            # Time references
-            "today": ["today", "this day", "now"],
-            "tomorrow": ["tomorrow", "next day", "tmr", "tmrw"],
-            "week": ["week", "7 days", "this week", "next week"],
+            "task": [
+                "task",
+                "todo",
+                "item",
+                "job",
+                "assignment",
+                "work",
+                "action",
+                "duty",
+                "chore",
+            ],
+            "reminder": [
+                "reminder",
+                "remind",
+                "alert",
+                "notification",
+                "notice",
+                "ping",
+            ],
+            "list": ["list", "checklist", "items", "things", "inventory", "collection"],
+            # Time references (enhanced from temporal processor insights)
+            "today": ["today", "this day", "now", "current day"],
+            "tomorrow": ["tomorrow", "next day", "tmr", "tmrw", "tom"],
+            "week": ["week", "7 days", "this week", "next week", "weekly"],
+            "hour": ["hour", "hr", "hours", "hrs"],
+            "minute": ["minute", "min", "minutes", "mins"],
         }
 
         # User aliases - will be loaded from database
@@ -203,70 +260,125 @@ class ConfidenceScorer:
     ) -> float:
         """Calculate confidence score based on multiple factors."""
 
-        # Base confidence levels by operation explicitness
+        # Enhanced base confidence levels by operation explicitness
         base_confidence = {
-            # High confidence - very specific operations
-            "add_items": 0.8,
-            "remove_items": 0.8,
-            "complete": 0.9,
+            # Very high confidence - unambiguous operations
+            "complete": 0.95,  # Very clear intent
+            "reassign": 0.9,  # Clear delegation
+            "delete": 0.85,  # Destructive but clear
+            # High confidence - specific operations
+            "add_items": 0.85,
+            "remove_items": 0.85,
             "create": 0.8,
-            "reassign": 0.9,
-            # Medium confidence - somewhat ambiguous
-            "read": 0.7,
-            "rename": 0.7,
-            "reschedule": 0.7,
+            "clear": 0.8,
+            # Medium-high confidence
+            "read": 0.75,
+            "rename": 0.75,
+            "reschedule": 0.75,
+            "add_notes": 0.7,
             # Lower confidence - more ambiguous
             "update": 0.5,  # Generic update
-            "delete": 0.6,  # Destructive but clear
+            "interactive": 0.4,  # Need more context
         }.get(operation, 0.6)
 
         confidence = base_confidence
 
         # Position boost - earlier keywords are more intentional
-        if keyword_match.start() < 10:
+        message_length = len(message)
+        relative_position = keyword_match.start() / max(message_length, 1)
+
+        if relative_position < 0.2:  # In first 20% of message
+            confidence += 0.15
+        elif relative_position < 0.4:  # In first 40%
             confidence += 0.1
-        elif keyword_match.start() < 20:
+        elif relative_position < 0.6:  # In first 60%
             confidence += 0.05
 
-        # Length boost - longer keywords are more specific
-        keyword_length = len(keyword_match.group(0))
-        if keyword_length > 12:
+        # Keyword specificity boost
+        keyword_text = keyword_match.group(0).lower()
+        keyword_length = len(keyword_text)
+
+        # Very specific multi-word phrases get higher boost
+        if " " in keyword_text:  # Multi-word keyword
+            confidence += 0.15
+        elif keyword_length > 10:  # Long specific keyword
             confidence += 0.1
-        elif keyword_length > 8:
+        elif keyword_length > 6:  # Medium keyword
             confidence += 0.05
 
         # User assignment boost - assignments increase confidence
         if target_users:
-            confidence += 0.2  # User assignments are strong signals
+            confidence += 0.15  # User assignments are strong signals
 
             # @ mentions provide additional boost (explicit syntax)
             if "@" in message:
-                confidence += 0.1  # Explicit @ syntax adds extra confidence
+                confidence += 0.15  # Explicit @ syntax adds significant confidence
 
-        # Context clues boost
+        # Enhanced context clues
         message_lower = message.lower()
 
-        # Time references suggest task operations
-        time_words = ["tomorrow", "today", "next week", "at", "pm", "am"]
-        if any(word in message_lower for word in time_words) and entity_type == "tasks":
-            confidence += 0.05
+        # Time references with task operations
+        time_patterns = [
+            r"\b(?:at|by|before|after)\s+\d+",  # at 3, by 5
+            r"\b\d+(?:am|pm)\b",  # 3pm, 10am
+            r"\b(?:tomorrow|today|tonight|yesterday)\b",
+            r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+            r"\b(?:next|this|last)\s+(?:week|month|year)\b",
+            r"\b(?:morning|afternoon|evening|night)\b",
+        ]
 
-        # Item lists suggest list operations
-        if "," in message and entity_type == "lists":
-            confidence += 0.05
+        time_match_count = sum(
+            1 for pattern in time_patterns if re.search(pattern, message_lower)
+        )
+        if time_match_count > 0 and entity_type == "tasks":
+            confidence += min(0.1 * time_match_count, 0.2)  # Cap at 0.2
 
-        # Site names suggest field reports
-        site_names = ["eagle lake", "crockett", "mathis"]
+        # List indicators
+        list_indicators = [
+            "," in message,  # Comma-separated items
+            re.search(r"\band\b", message_lower),  # "milk and bread"
+            re.search(r"\b(?:also|plus)\b", message_lower),  # "also eggs"
+            message.count("\n") > 1,  # Multi-line lists
+        ]
+
+        if any(list_indicators) and entity_type == "lists":
+            confidence += 0.1
+
+        # Site-specific context for field reports
+        site_names = ["eagle lake", "crockett", "mathis", "site", "location"]
         if (
             any(site in message_lower for site in site_names)
             and entity_type == "field_reports"
         ):
-            confidence += 0.1
+            confidence += 0.15
+
+        # Question words reduce confidence (might be a query, not an action)
+        question_words = ["what", "when", "where", "who", "how", "why", "which"]
+        if any(word in message_lower.split() for word in question_words):
+            confidence -= 0.15
 
         # Ambiguity penalties
-        ambiguous_words = ["update", "change", "modify", "fix"]
+        ambiguous_words = ["maybe", "might", "possibly", "could", "should i", "can you"]
         if any(word in message_lower for word in ambiguous_words):
-            confidence -= 0.1
+            confidence -= 0.2
+
+        # Imperative mood boost (commands often start with verbs)
+        imperative_verbs = [
+            "add",
+            "remove",
+            "create",
+            "delete",
+            "show",
+            "list",
+            "complete",
+            "finish",
+        ]
+        if any(message_lower.startswith(verb) for verb in imperative_verbs):
+            confidence += 0.1
+
+        # Explicit command indicators
+        if message_lower.startswith(("please", "pls", "plz")):
+            confidence += 0.05  # Polite command still a command
 
         return min(max(confidence, 0.0), 1.0)  # Clamp between 0-1
 
@@ -297,7 +409,13 @@ class KeywordRouter:
                         "make list",
                         "start list",
                         "build list",
-                        "create shopping list",  # TODO: Remove once wildcard patterns are implemented
+                        "create shopping list",
+                        "create grocery list",
+                        "make a list",
+                        "start a list",
+                        "begin list",
+                        "list for",
+                        "list of",
                     ],
                     "function": "create_list",
                     "example": "new list called grocery items",
@@ -308,8 +426,15 @@ class KeywordRouter:
                         "print list",
                         "read list",
                         "what's on",
+                        "what is on",
                         "display list",
                         "view list",
+                        "get list",
+                        "see list",
+                        "check list",
+                        "review list",
+                        "list contents",
+                        "what's in",
                     ],
                     "function": "read_list",
                     "example": "show list grocery items",
@@ -322,6 +447,15 @@ class KeywordRouter:
                         "put on list",
                         "list needs",
                         "add",
+                        "append",
+                        "we need",
+                        "also need",
+                        "don't forget",
+                        "include",
+                        "put down",
+                        "write down",
+                        "add item",
+                        "add items",
                     ],
                     "function": "update_list",
                     "example": "add milk to grocery items list",
@@ -331,25 +465,60 @@ class KeywordRouter:
                         "remove from list",
                         "remove from",
                         "take off list",
+                        "take off",
                         "delete from list",
                         "take out",
                         "remove",
+                        "strike from",
+                        "cross off",
+                        "scratch off",
+                        "we have",
+                        "got",
+                        "already have",
+                        "don't need",
+                        "no longer need",
                     ],
                     "function": "update_list",
                     "example": "remove milk from grocery items list",
                 },
                 "rename": {
-                    "keywords": ["rename list", "change list name", "call list"],
+                    "keywords": [
+                        "rename list",
+                        "change list name",
+                        "call list",
+                        "rename to",
+                        "change name to",
+                        "update list name",
+                        "retitle list",
+                    ],
                     "function": "update_list",
                     "example": "rename list to shopping items",
                 },
                 "clear": {
-                    "keywords": ["clear list", "empty list", "remove all"],
+                    "keywords": [
+                        "clear list",
+                        "empty list",
+                        "remove all",
+                        "wipe list",
+                        "reset list",
+                        "start over",
+                        "clean list",
+                        "delete everything",
+                        "remove everything",
+                    ],
                     "function": "update_list",
                     "example": "clear grocery items list",
                 },
                 "delete": {
-                    "keywords": ["delete list", "remove list", "trash list"],
+                    "keywords": [
+                        "delete list",
+                        "remove list",
+                        "trash list",
+                        "destroy list",
+                        "eliminate list",
+                        "get rid of list",
+                        "purge list",
+                    ],
                     "function": "delete_list",
                     "example": "delete list grocery items",
                     "requires_admin": True,
@@ -363,6 +532,16 @@ class KeywordRouter:
                         "add task",
                         "remind me",
                         "task for",
+                        "need to",
+                        "have to",
+                        "must",
+                        "should",
+                        "todo",
+                        "to do",
+                        "reminder",
+                        "don't forget",
+                        "remember to",
+                        "make sure",
                     ],
                     "function": "create_task",
                     "example": "new task check generator oil tomorrow at 3pm",
@@ -374,6 +553,12 @@ class KeywordRouter:
                         "what tasks",
                         "my tasks",
                         "tasks for",
+                        "show my todos",
+                        "what's on my plate",
+                        "what do i have",
+                        "pending tasks",
+                        "active tasks",
+                        "open tasks",
                     ],
                     "function": "list_tasks",
                     "example": "show tasks for this week",
@@ -381,10 +566,20 @@ class KeywordRouter:
                 "complete": {
                     "keywords": [
                         "mark complete",
+                        "mark as complete",
                         "finish task",
                         "done with",
                         "task complete",
+                        "complete",
                         "completed",
+                        "finished",
+                        "done",
+                        "completed task",
+                        "task done",
+                        "check off",
+                        "mark as done",
+                        "close task",
+                        "resolved",
                     ],
                     "function": "update_task",
                     "example": "mark complete generator maintenance task",
@@ -397,12 +592,28 @@ class KeywordRouter:
                         "give to",
                         "transfer to",
                         "hand to",
+                        "switch to",
+                        "delegate to",
+                        "pass to",
+                        "hand off",
+                        "change owner to",
                     ],
                     "function": "update_task",
                     "example": "reassign generator task to Joel",
                 },
                 "reschedule": {
-                    "keywords": ["reschedule to", "move to", "change date", "push to"],
+                    "keywords": [
+                        "reschedule to",
+                        "move to",
+                        "change date",
+                        "push to",
+                        "defer to",
+                        "postpone to",
+                        "delay to",
+                        "bump to",
+                        "shift to",
+                        "change time",
+                    ],
                     "function": "update_task",
                     "example": "reschedule oil check to next week",
                 },
@@ -412,6 +623,11 @@ class KeywordRouter:
                         "note on",
                         "update with",
                         "add details",
+                        "add comment",
+                        "annotate",
+                        "add info",
+                        "note that",
+                        "update notes",
                     ],
                     "function": "update_task",
                     "example": "add note to generator task: found leak",
@@ -521,8 +737,10 @@ class KeywordRouter:
         for entity_type, operations in self.operations.items():
             self.patterns[entity_type] = {}
             for operation, config in operations.items():
-                # Create pattern that matches any of the keywords
-                keywords_pattern = "|".join(re.escape(kw) for kw in config["keywords"])
+                # Sort keywords by length (longest first) to match more specific phrases first
+                # This ensures "add task" matches before "add"
+                sorted_keywords = sorted(config["keywords"], key=len, reverse=True)
+                keywords_pattern = "|".join(re.escape(kw) for kw in sorted_keywords)
                 self.patterns[entity_type][operation] = re.compile(
                     rf"\b({keywords_pattern})\b", re.IGNORECASE
                 )
@@ -865,7 +1083,96 @@ class KeywordRouter:
                     # Apply telegram boost
                     confidence = min(base_confidence + telegram_boost, 1.0)
 
-                    if confidence > best_match.confidence:
+                    # Reduce confidence for uncertain language
+                    uncertainty_words = [
+                        "maybe",
+                        "possibly",
+                        "perhaps",
+                        "could",
+                        "might",
+                        "what about",
+                    ]
+                    for word in uncertainty_words:
+                        if word in message_lower:
+                            confidence = max(confidence * 0.7, 0.3)
+                            break
+
+                    # Reduce confidence for questions
+                    if any(
+                        word in message_lower
+                        for word in ["what", "when", "who", "where", "why", "how"]
+                    ):
+                        if message_lower.endswith("?") or message_lower.startswith(
+                            ("what", "when", "who", "where", "why", "how")
+                        ):
+                            confidence = max(confidence * 0.8, 0.4)
+
+                    # Boost reschedule confidence when temporal context is present
+                    # This helps "move to next week" route to reschedule instead of reassign
+                    if operation == "reschedule" and prefilled_data.get(
+                        "has_temporal_context"
+                    ):
+                        confidence = min(confidence + 0.2, 1.0)
+
+                    # Penalize reassign when temporal context is present but no user mention
+                    # This helps avoid mis-routing "move to next week" to reassign
+                    if (
+                        operation == "reassign"
+                        and prefilled_data.get("has_temporal_context")
+                        and not target_users
+                    ):
+                        confidence = max(confidence - 0.3, 0.3)
+
+                    # Boost complete confidence when "mark" appears near "complete"
+                    # This helps complex phrases like "mark ... as complete and assign..."
+                    if operation == "complete" and "mark" in message_lower:
+                        confidence = min(confidence + 0.15, 1.0)
+
+                    # Special case: "mark ... as complete" pattern
+                    if (
+                        entity_type == "tasks"
+                        and "mark" in message_lower
+                        and "as complete" in message_lower
+                    ):
+                        if operation == "complete":
+                            confidence = min(confidence + 0.5, 1.0)
+                        elif operation == "reassign":
+                            confidence = max(confidence - 0.5, 0.2)
+
+                    # Penalize reassign in compound commands where complete appears first
+                    if operation == "reassign" and "complete" in message_lower:
+                        complete_pos = message_lower.find("complete")
+                        assign_pos = message_lower.find("assign")
+                        if complete_pos < assign_pos and complete_pos != -1:
+                            confidence = max(confidence - 0.4, 0.3)
+
+                    # Context-based routing for "don't forget"
+                    # "don't forget to" usually indicates a task/reminder
+                    # "don't forget" alone might be a list item
+                    if "don't forget" in message_lower:
+                        if (
+                            "don't forget to" in message_lower
+                            or "don't forget we" in message_lower
+                        ):
+                            # This is likely a task/reminder
+                            if entity_type == "tasks":
+                                confidence = min(confidence + 0.3, 1.0)
+                            elif entity_type == "lists":
+                                confidence = max(confidence - 0.3, 0.3)
+                        else:
+                            # Could be either, slight preference for lists
+                            if entity_type == "lists":
+                                confidence = min(confidence + 0.1, 1.0)
+
+                    # Prefer longer keyword matches when confidence is equal (tiebreaker)
+                    # This ensures "add task" beats "add" when both have same confidence
+                    match_length = len(match.group())
+                    should_update = confidence > best_match.confidence or (
+                        confidence == best_match.confidence
+                        and match_length > getattr(best_match, "_match_length", 0)
+                    )
+
+                    if should_update:
                         best_match = RouteResult(
                             entity_type=entity_type,
                             operation=operation,
@@ -888,6 +1195,8 @@ class KeywordRouter:
                             operation_confidence=confidence,  # This is from keyword matching
                             assignee_confidence=confidences.get("assignee_confidence"),
                         )
+                        # Store match length for tiebreaker comparisons
+                        best_match._match_length = match_length
 
         # If we have a Telegram command but no operation match, still route to entity
         if forced_entity_type and best_match.entity_type is None:
@@ -943,7 +1252,11 @@ class KeywordRouter:
                     del self._cache_timestamps[key]
 
     def _extract_data(
-        self, message: str, entity_type: str, operation: str, message_lower: str = None
+        self,
+        message: str,
+        entity_type: str,
+        operation: str,
+        message_lower: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Extract relevant data from message based on entity type and operation."""
         data = {}

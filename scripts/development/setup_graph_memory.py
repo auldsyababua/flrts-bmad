@@ -4,8 +4,8 @@ Setup script for graph memory infrastructure.
 This script configures Neo4j and creates the necessary environment variables.
 """
 
-import sys
 import subprocess
+import sys
 import time
 from pathlib import Path
 
