@@ -82,7 +82,7 @@ jobs:
       
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: backend-test-results
           path: |
@@ -138,7 +138,7 @@ jobs:
           name: frontend-coverage
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-build
           path: telegram-mini-app/dist/
@@ -167,7 +167,7 @@ jobs:
           pytest tests/performance -v --benchmark-only --benchmark-json=benchmarks.json
       
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: performance-benchmarks
           path: benchmarks.json
@@ -223,7 +223,7 @@ jobs:
           format: 'HTML'
       
       - name: Upload dependency check results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: dependency-check-report
           path: reports/
@@ -264,7 +264,7 @@ jobs:
       
       - name: Upload anti-mesa test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         with:
           name: anti-mesa-validation
           path: anti_mesa_results.txt
