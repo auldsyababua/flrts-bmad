@@ -66,7 +66,7 @@ jobs:
             -v
       
       - name: Upload Python coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: python-coverage-report
           path: |
@@ -115,7 +115,7 @@ jobs:
           fi
       
       - name: Upload Frontend coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-coverage-report
           path: |
